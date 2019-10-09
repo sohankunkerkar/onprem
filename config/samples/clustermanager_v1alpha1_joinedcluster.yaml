@@ -1,0 +1,7 @@
+apiVersion: clustermanager.onprem.openshift.io/v1alpha1
+kind: JoinedCluster
+metadata:
+  name: joinedcluster-sample
+spec:
+  # Add fields here
+  foo: bar

@@ -1,0 +1,7 @@
+version: "2"
+domain: onprem.openshift.io
+repo: github.com/font/onprem
+resources:
+- group: clustermanager
+  version: v1alpha1
+  kind: JoinedCluster
