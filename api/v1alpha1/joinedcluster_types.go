@@ -26,12 +26,88 @@ import (
 type JoinedClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Optional service account name to allow spoke cluster to communicate with the hub when joining
+	// If the service account by this name doesn't exist, it will be created in the hub cluster
+	// If not specified, a service account will be generated for the spoke cluster to use.
+	// +optional
+	ServiceAccount string `json:"serviceAccount,omitempty"`
+
+	// +kubebuilder:validation:Minimum=0
+
+	// Optional staleness timer used to detect if the spoke cluster hasn't been heartbeating back to the hub
+	// +optional
+	StalenessTimer int64 `json:"stalenessTimer,omitempty"`
+
+	// +kubebuilder:validation:Minimum=0
+
+	// Optional disconnect timer used to detect if the spoke cluster has disconnected from the hub
+	// +optional
+	DisconnectTimer int64 `json:"disconnectTimer,omitempty"`
+}
+
+// ConditionStatus describes the status of the condition as described by the constants below
+// +kubebuilder:validation:Enum=True;False;Unknown
+type ConditionStatus string
+
+// These are valid condition statuses. "ConditionTrue" means a resource is in the condition.
+// "ConditionFalse" means a resource is not in the condition. "ConditionUnknown" means kubernetes
+// can't decide if a resource is in the condition or not. In the future, we could add other
+// intermediate conditions, e.g. ConditionDegraded.
+const (
+	ConditionTrue    ConditionStatus = "True"
+	ConditionFalse   ConditionStatus = "False"
+	ConditionUnknown ConditionStatus = "Unknown"
+)
+
+// JoinedClusterConditionType describes the possible type of conditions that can occur for this resource
+// +kubebuilder:validation:Enum=ReadyToJoin;AgentConnected;AgentStale;AgentDisconnected
+type JoinedClusterConditionType string
+
+const (
+	ConditionTypeReadyToJoin       JoinedClusterConditionType = "ReadyToJoin"
+	ConditionTypeAgentConnected    JoinedClusterConditionType = "AgentConnected"
+	ConditionTypeAgentStale        JoinedClusterConditionType = "AgentStale"
+	ConditionTypeAgentDisconnected JoinedClusterConditionType = "AgentDisconnected"
+)
+
+type JoinedClusterConditions struct {
+	// Type defines the type of JoinedClusterCondition being populated by the controller
+	Type JoinedClusterConditionType `json:"type"`
+	// Status is the status of the condition.
+	// Can be True, False, Unknown.
+	Status ConditionStatus `json:"status"`
+	// Last transition time when this condition got set
+	// +optional
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
+	// Unique, one-word, CamelCase reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Human readable message indicating details about last transition
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // JoinedClusterStatus defines the observed state of JoinedCluster
 type JoinedClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	//Conditions
+	Conditions []JoinedClusterConditions `json:"conditions"`
+
+	// JoinCommand
+	// +optional
+	JoinCommand string `json:"joinCommand,omitempty"`
+
+	// ServiceAccount name chosen by the hub for the spoke to use
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// When the cluster agent starts running and heartbeating, it will report
+	// status in this field
+	// +optional
+	ClusterAgentInfo string `json:"clusterAgentInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true
