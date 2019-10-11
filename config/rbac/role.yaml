@@ -1,0 +1,28 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - clustermanager.onprem.openshift.io
+  resources:
+  - joinedclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - clustermanager.onprem.openshift.io
+  resources:
+  - joinedclusters/status
+  verbs:
+  - get
+  - patch
+  - update

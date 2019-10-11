@@ -1,0 +1,120 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: joinedclusters.clustermanager.onprem.openshift.io
+spec:
+  group: clustermanager.onprem.openshift.io
+  names:
+    kind: JoinedCluster
+    listKind: JoinedClusterList
+    plural: joinedclusters
+    singular: joinedcluster
+  scope: ""
+  validation:
+    openAPIV3Schema:
+      description: JoinedCluster is the Schema for the joinedclusters API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: JoinedClusterSpec defines the desired state of JoinedCluster
+          properties:
+            disconnectTimer:
+              description: Optional disconnect timer used to detect if the spoke cluster
+                has disconnected from the hub
+              format: int64
+              minimum: 0
+              type: integer
+            serviceAccount:
+              description: Optional service account name to allow spoke cluster to
+                communicate with the hub when joining If the service account by this
+                name doesn't exist, it will be created in the hub cluster If not specified,
+                a service account will be generated for the spoke cluster to use.
+              type: string
+            stalenessTimer:
+              description: Optional staleness timer used to detect if the spoke cluster
+                hasn't been heartbeating back to the hub
+              format: int64
+              minimum: 0
+              type: integer
+          type: object
+        status:
+          description: JoinedClusterStatus defines the observed state of JoinedCluster
+          properties:
+            clusterAgentInfo:
+              description: When the cluster agent starts running and heartbeating,
+                it will report status in this field
+              type: string
+            conditions:
+              description: Conditions
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last transition time when this condition got set
+                    format: date-time
+                    type: string
+                  message:
+                    description: Human readable message indicating details about last
+                      transition
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's
+                      last transition.
+                    type: string
+                  status:
+                    description: Status is the status of the condition. Can be True,
+                      False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: Type defines the type of JoinedClusterCondition being
+                      populated by the controller
+                    enum:
+                    - ReadyToJoin
+                    - AgentConnected
+                    - AgentStale
+                    - AgentDisconnected
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+            joinCommand:
+              description: JoinCommand
+              type: string
+            serviceAccountName:
+              description: ServiceAccount name chosen by the hub for the spoke to
+                use
+              type: string
+          required:
+          - conditions
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
