@@ -27,23 +27,26 @@ type JoinedClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
+
 	// Optional service account name to allow spoke cluster to communicate with the hub when joining
 	// If the service account by this name doesn't exist, it will be created in the hub cluster
 	// If not specified, a service account will be generated for the spoke cluster to use.
 	// +optional
-	ServiceAccount string `json:"serviceAccount,omitempty"`
+	ServiceAccount *string `json:"serviceAccount,omitempty"`
 
-	// +kubebuilder:validation:Minimum=0
-
-	// Optional staleness timer used to detect if the spoke cluster hasn't been heartbeating back to the hub
+	// Optional stale duration used to configure the time to wait before
+	// determining that the spoke cluster connection has gone stale by not
+	// heartbeating back to the hub.
 	// +optional
-	StalenessTimer int64 `json:"stalenessTimer,omitempty"`
+	StaleDuration *metav1.Duration `json:"staleDuration,omitempty"`
 
-	// +kubebuilder:validation:Minimum=0
-
-	// Optional disconnect timer used to detect if the spoke cluster has disconnected from the hub
+	// Optional disconnect duration used to configure the time to wait before
+	// determining that the spoke cluster has disconnected by not heartbeating
+	// back to the hub after the connection became stale.
 	// +optional
-	DisconnectTimer int64 `json:"disconnectTimer,omitempty"`
+	DisconnectDuration *metav1.Duration `json:"disconnectDuration,omitempty"`
 }
 
 // ConditionStatus describes the status of the condition as described by the constants below
@@ -82,10 +85,21 @@ type JoinedClusterConditions struct {
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 	// Unique, one-word, CamelCase reason for the condition's last transition.
 	// +optional
-	Reason string `json:"reason,omitempty"`
+	Reason *string `json:"reason,omitempty"`
 	// Human readable message indicating details about last transition
 	// +optional
-	Message string `json:"message,omitempty"`
+	Message *string `json:"message,omitempty"`
+}
+
+// ClusterAgentInfo describes the metadata reported by the cluster agent in the
+// spoke cluster.
+type ClusterAgentInfo struct {
+	// Version of the cluster agent running in the spoke cluster.
+	Version string `json:"version"`
+	// Image of the cluster agent running int he spoke cluster.
+	Image string `json:"image"`
+	// Last update time written by cluster agent.
+	LastUpdateTime metav1.Time `json:"time"`
 }
 
 // JoinedClusterStatus defines the observed state of JoinedCluster
@@ -98,19 +112,23 @@ type JoinedClusterStatus struct {
 
 	// JoinCommand
 	// +optional
-	JoinCommand string `json:"joinCommand,omitempty"`
+	JoinCommand *string `json:"joinCommand,omitempty"`
+
+	// +kubebuilder:validation:253
+	// +kubebuilder:validation:^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
 
 	// ServiceAccount name chosen by the hub for the spoke to use
 	// +optional
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
 
 	// When the cluster agent starts running and heartbeating, it will report
-	// status in this field
+	// metadata information in this field.
 	// +optional
-	ClusterAgentInfo string `json:"clusterAgentInfo,omitempty"`
+	ClusterAgentInfo *ClusterAgentInfo `json:"clusterAgentInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // JoinedCluster is the Schema for the joinedclusters API
 type JoinedCluster struct {
