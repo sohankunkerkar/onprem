@@ -13,6 +13,8 @@ spec:
     plural: joinedclusters
     singular: joinedcluster
   scope: ""
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: JoinedCluster is the Schema for the joinedclusters API
@@ -32,32 +34,47 @@ spec:
         spec:
           description: JoinedClusterSpec defines the desired state of JoinedCluster
           properties:
-            disconnectTimer:
-              description: Optional disconnect timer used to detect if the spoke cluster
-                has disconnected from the hub
-              format: int64
-              minimum: 0
-              type: integer
+            disconnectDuration:
+              description: Optional disconnect duration used to configure the time
+                to wait before determining that the spoke cluster has disconnected
+                by not heartbeating back to the hub after the connection became stale.
+              type: string
             serviceAccount:
               description: Optional service account name to allow spoke cluster to
                 communicate with the hub when joining If the service account by this
                 name doesn't exist, it will be created in the hub cluster If not specified,
                 a service account will be generated for the spoke cluster to use.
+              maxLength: 253
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
               type: string
-            stalenessTimer:
-              description: Optional staleness timer used to detect if the spoke cluster
-                hasn't been heartbeating back to the hub
-              format: int64
-              minimum: 0
-              type: integer
+            staleDuration:
+              description: Optional stale duration used to configure the time to wait
+                before determining that the spoke cluster connection has gone stale
+                by not heartbeating back to the hub.
+              type: string
           type: object
         status:
           description: JoinedClusterStatus defines the observed state of JoinedCluster
           properties:
             clusterAgentInfo:
               description: When the cluster agent starts running and heartbeating,
-                it will report status in this field
-              type: string
+                it will report metadata information in this field.
+              properties:
+                image:
+                  description: Image of the cluster agent running int he spoke cluster.
+                  type: string
+                time:
+                  description: Last update time written by cluster agent.
+                  format: date-time
+                  type: string
+                version:
+                  description: Version of the cluster agent running in the spoke cluster.
+                  type: string
+              required:
+              - image
+              - time
+              - version
+              type: object
             conditions:
               description: Conditions
               items:
