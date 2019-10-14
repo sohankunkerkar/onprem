@@ -65,6 +65,7 @@ func main() {
 	if err = (&hub.JoinedClusterReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("hub").WithName("JoinedCluster"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "JoinedCluster")
 		os.Exit(1)
