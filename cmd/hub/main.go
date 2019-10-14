@@ -20,7 +20,7 @@ import (
 	"os"
 
 	clustermanagerv1alpha1 "github.com/font/onprem/api/v1alpha1"
-	"github.com/font/onprem/controllers"
+	"github.com/font/onprem/pkg/controllers/hub"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -62,9 +62,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.JoinedClusterReconciler{
+	if err = (&hub.JoinedClusterReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("JoinedCluster"),
+		Log:    ctrl.Log.WithName("hub").WithName("JoinedCluster"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "JoinedCluster")
 		os.Exit(1)

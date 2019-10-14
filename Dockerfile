@@ -12,7 +12,7 @@ RUN go mod download
 # Copy the go source
 COPY cmd/hub/main.go cmd/hub/main.go
 COPY api/ api/
-COPY controllers/ controllers/
+COPY pkg/controllers/hub pkg/controllers/hub
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager cmd/hub/main.go
