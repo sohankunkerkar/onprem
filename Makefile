@@ -21,9 +21,17 @@ test: generate fmt vet manifests
 manager: generate fmt vet
 	go build -o bin/manager cmd/hub/main.go
 
+# Build agent binary
+agent: generate fmt vet
+	go build -o bin/agent cmd/agent/main.go
+
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./cmd/hub/main.go
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run-agent: generate fmt vet manifests
+	go run ./cmd/agent/main.go
 
 # Install CRDs into a cluster
 install: manifests
