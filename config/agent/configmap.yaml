@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-cluster
+  namespace: onprem-system
+data:
+  server: nil
+  joinClusterName: nil
+  joinClusterNamespace: nil
