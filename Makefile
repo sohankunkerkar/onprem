@@ -65,6 +65,10 @@ generate: controller-gen
 docker-build: test
 	docker build -f config/hub/docker/Dockerfile . -t ${IMG}
 
+# Build the agent docker image
+docker-build-agent: test
+	docker build -f config/agent/docker/Dockerfile . -t ${IMG}
+
 # Push the docker image
 docker-push:
 	docker push ${IMG}
