@@ -61,9 +61,9 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
-# Build the docker image
+# Build the manager docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker build -f config/hub/docker/Dockerfile . -t ${IMG}
 
 # Push the docker image
 docker-push:
