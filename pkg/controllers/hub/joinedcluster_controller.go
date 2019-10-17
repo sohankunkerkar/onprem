@@ -147,7 +147,6 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		serverUrl, err := getServerUrl(r, log)
 		if _, exists := saSecret.Data["ca.crt"]; exists {
 			if _, exists := saSecret.Data["token"]; exists {
-				var kubeConfig *clientcmdapi.Config = nil
 				kubeConfig := kubeadmkubeconfig.CreateWithToken(serverUrl, "hub", serviceAccount.Name,
 					saSecret.Data["ca.crt"], string(saSecret.Data["token"]))
 				if kubeConfig != nil {
@@ -415,8 +414,8 @@ func getServerUrl(r *JoinedClusterReconciler, log logr.Logger) (string, error) {
 	}
 	err = r.Get(context.Background(), infraObjectKey, infrastructure)
 	if err != nil {
-		log.Error(err, "Error getting infrastructure from API server", "name", infraStructure.Name)
+		log.Error(err, "Error getting infrastructure from API server", "name", infrastructure.Name)
 		return "", err
 	}
-	return infrastructure.ApiServerURL, nil
+	return infrastructure.Status.APIServerURL, nil
 }
