@@ -1,7 +1,0 @@
-[[override]]
-  name = "gopkg.in/fsnotify.v1"
-  source = "https://github.com/fsnotify/fsnotify.git"
-[[constraint]]
-  name = "sigs.k8s.io/controller-runtime"
-  source = "https://github.com/kubernetes-sigs/controller-runtime"
-  branch = "master"

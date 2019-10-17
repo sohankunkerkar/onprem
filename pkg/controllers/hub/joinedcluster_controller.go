@@ -31,10 +31,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	kubeadmkubeconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,10 +39,11 @@ const (
 	yamlFilePath                    = "config/agent/agent.yaml"
 	OnPremCanonicalNamespace string = "onprem-hub-system"
 	joinCommandTemplate      string = `# Run this on the hub cluster context
-kubectl get secret %s -n %s -o=jsonpath="{.data.kubeconfig}" > sa-kubeconfig
+kubectl get secret %s -n %s -o=jsonpath="{.data.caBundle}" > caBundle
+kubectl get secret %s -n %s -o=jsonpath="{.data.token}" > token
 #Run this in the spoke cluster context, the spoke context is set by a path in SPOKE_KUBECONFIG env. var
 export KUBECONFIG=${SPOKE_KUBECONFIG}
-kubectl create secret hub-cluster -n onprem-system --from-file=sa-kubeconfig
+kubectl create secret hub-cluster -n onprem-system --from-file=caBundle --from-file=token
 kubectl create configmap hub-cluster -n onprem-system --from-literal=joinClusterName=%s --from-literal=joinClusterNamespace=%s --from-literal=server=%s
 cat << EOF | kubectl apply -f - 
 %s
@@ -153,25 +150,20 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		serverUrl, err := getServerUrl(r, log)
 		if _, exists := saSecret.Data["ca.crt"]; exists {
 			if _, exists := saSecret.Data["token"]; exists {
-				kubeConfig := kubeadmkubeconfig.CreateWithToken(serverUrl, "hub", serviceAccount.Name,
-					saSecret.Data["ca.crt"], string(saSecret.Data["token"]))
-				if kubeConfig != nil {
-					joinSecret, err := createKubeConfigSecret(r, kubeConfig, joinedCluster.Name)
-					if err != nil {
-						return ctrl.Result{}, err
-					}
-					yamlFile, err := ioutil.ReadFile(yamlFilePath)
-					if err != nil {
-						log.Info("Cannot read yaml file from the deployment dir")
-						return ctrl.Result{}, err
-					}
-					joinCommand := fmt.Sprintf(joinCommandTemplate, joinSecret.Name, joinSecret.Namespace, joinedCluster.Name, joinedCluster.Namespace, serverUrl, string(yamlFile))
-					log.Info("Command output:", "joincommand", joinCommand)
-					joinedCluster.Status.JoinCommand = &joinCommand
-				} else {
-					log.Info("Couldn't create a kubeconfig out of the sa secret")
-					return ctrl.Result{}, errors.New("Error creating kubeconfig from sa secret")
+				joinSecret, err := createJoinSecret(r, saSecret.Data["ca.crt"], saSecret.Data["token"], joinedCluster.Name)
+				if err != nil {
+					return ctrl.Result{}, err
 				}
+				yamlFile, err := ioutil.ReadFile(yamlFilePath)
+				if err != nil {
+					log.Info("Cannot read yaml file from the deployment dir")
+					return ctrl.Result{}, err
+				}
+				joinCommand := fmt.Sprintf(joinCommandTemplate, joinSecret.Name, joinSecret.Namespace,
+					joinSecret.Name, joinSecret.Namespace, joinedCluster.Name, joinedCluster.Namespace, serverUrl, string(yamlFile))
+				log.Info("Command output:", "joincommand", joinCommand)
+				joinedCluster.Status.JoinCommand = &joinCommand
+
 			} else {
 				log.Info("Couldn't find the token key in the secret")
 				return ctrl.Result{}, errors.New("Token key not found for the sa secret")
@@ -388,22 +380,18 @@ func getSecret(r *JoinedClusterReconciler, serviceAccount *v1.ServiceAccount, lo
 
 // This function creates a secret that saves the kubeconfig inside it. It doesn't return the actual updated secret object.
 // But just the skeleton used to create it so it can be used for populating the JoinCommand.
-func createKubeConfigSecret(r *JoinedClusterReconciler, kubeConfig *clientcmdapi.Config, joinedClusterName string) (*v1.Secret, error) {
-	kubeConfigYaml, err := clientcmd.Write(*kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
+func createJoinSecret(r *JoinedClusterReconciler, caCert []byte, token []byte, joinedClusterName string) (*v1.Secret, error) {
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", joinedClusterName, "join-secret"),
 			Namespace: OnPremCanonicalNamespace,
 		},
-		StringData: map[string]string{
-			"kubeconfig": string(kubeConfigYaml),
+		Data: map[string][]byte{
+			"caBundle": caCert,
+			"token":    token,
 		},
 	}
-	err = r.Create(context.Background(), secret)
+	err := r.Create(context.Background(), secret)
 	if err != nil {
 		return nil, err
 	}
