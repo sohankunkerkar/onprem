@@ -21,9 +21,17 @@ test: generate fmt vet manifests
 manager: generate fmt vet
 	go build -o bin/manager cmd/hub/main.go
 
+# Build agent binary
+agent: generate fmt vet
+	go build -o bin/agent cmd/agent/main.go
+
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./cmd/hub/main.go
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run-agent: generate fmt vet manifests
+	go run ./cmd/agent/main.go
 
 # Install CRDs into a cluster
 install: manifests
@@ -53,9 +61,13 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
-# Build the docker image
+# Build the manager docker image
 docker-build: test
-	docker build . -t ${IMG}
+	docker build -f config/hub/docker/Dockerfile . -t ${IMG}
+
+# Build the agent docker image
+docker-build-agent: test
+	docker build -f config/agent/docker/Dockerfile . -t ${IMG}
 
 # Push the docker image
 docker-push:
