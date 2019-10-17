@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -39,12 +40,17 @@ import (
 )
 
 const (
+	yamlFilePath                    = "config/agent/agent.yaml"
 	OnPremCanonicalNamespace string = "onprem-hub-system"
 	joinCommandTemplate      string = `# Run this on the hub cluster context
 kubectl get secret %s -n %s -o=jsonpath="{.data.kubeconfig}" > sa-kubeconfig
-#Run this in the spoke cluster context, the spoke context is checked by existence of a SPOKE_KUBECONFIG env. var
+#Run this in the spoke cluster context, the spoke context is set by a path in SPOKE_KUBECONFIG env. var
+export KUBECONFIG=${SPOKE_KUBECONFIG}
 kubectl create secret hub-cluster -n onprem-system --from-file=sa-kubeconfig
 kubectl create configmap hub-cluster -n onprem-system --from-literal=joinClusterName=%s --from-literal=joinClusterNamespace=%s --from-literal=server=%s
+cat << EOF | kubectl apply -f - 
+%s
+EOF
 `
 )
 
@@ -154,7 +160,12 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 					if err != nil {
 						return ctrl.Result{}, err
 					}
-					joinCommand := fmt.Sprintf(joinCommandTemplate, joinSecret.Name, joinSecret.Namespace, joinedCluster.Name, joinedCluster.Namespace, serverUrl)
+					yamlFile, err := ioutil.ReadFile(yamlFilePath)
+					if err != nil {
+						log.Info("Cannot read yaml file from the deployment dir")
+						return ctrl.Result{}, err
+					}
+					joinCommand := fmt.Sprintf(joinCommandTemplate, joinSecret.Name, joinSecret.Namespace, joinedCluster.Name, joinedCluster.Namespace, serverUrl, string(yamlFile))
 					log.Info("Command output:", "joincommand", joinCommand)
 					joinedCluster.Status.JoinCommand = &joinCommand
 				} else {
