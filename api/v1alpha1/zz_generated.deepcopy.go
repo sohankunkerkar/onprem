@@ -100,7 +100,7 @@ func (in *JoinedClusterConditions) DeepCopy() *JoinedClusterConditions {
 func (in *JoinedClusterList) DeepCopyInto(out *JoinedClusterList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]JoinedCluster, len(*in))
