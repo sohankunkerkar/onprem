@@ -223,6 +223,7 @@ func removeString(slice []string, s string) (result []string) {
 	return
 }
 
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create;update;delete
 func createServiceAccount(r *JoinedClusterReconciler, req *ctrl.Request,
 	joinedCluster *clustermanagerv1alpha1.JoinedCluster, log logr.Logger) (*v1.ServiceAccount, error) {
 
@@ -269,6 +270,7 @@ func createServiceAccount(r *JoinedClusterReconciler, req *ctrl.Request,
 	return serviceAccount, nil
 }
 
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;create;delete
 func createRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request,
 	joinedCluster *clustermanagerv1alpha1.JoinedCluster, log logr.Logger) (*rbacv1.RoleBinding, error) {
 	var saName string
@@ -353,6 +355,7 @@ func deleteRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request, j *cluster
 	return r.Delete(context.Background(), roleBinding)
 }
 
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete
 func getSecret(r *JoinedClusterReconciler, serviceAccount *v1.ServiceAccount, log logr.Logger) (*v1.Secret, error) {
 	if len(serviceAccount.Secrets) <= 0 {
 		return nil, errors.New("Service account doesn't have any secrets")
@@ -399,6 +402,7 @@ func createJoinSecret(r *JoinedClusterReconciler, caCert []byte, token []byte, j
 	return secret, nil
 }
 
+// +kubebuilder:rbac:groups="config.openshift.io",resources=infrastructures,verbs=get;list
 func getServerUrl(r *JoinedClusterReconciler, log logr.Logger) (string, error) {
 	infrastructure := &configv1.Infrastructure{
 		ObjectMeta: metav1.ObjectMeta{
