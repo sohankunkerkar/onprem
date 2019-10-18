@@ -21,6 +21,7 @@ import (
 
 	clustermanagerv1alpha1 "github.com/font/onprem/api/v1alpha1"
 	"github.com/font/onprem/pkg/controllers/hub"
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -36,7 +37,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
+	_ = configv1.AddToScheme(scheme)
 	_ = clustermanagerv1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }

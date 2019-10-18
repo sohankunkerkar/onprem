@@ -20,11 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"time"
-
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"time"
 
 	clustermanagerv1alpha1 "github.com/font/onprem/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -36,14 +36,15 @@ import (
 )
 
 const (
-	yamlFilePath                    = "config/agent/agent.yaml"
+	yamlFilePath                    = "agent.yaml"
 	OnPremCanonicalNamespace string = "onprem-hub-system"
 	joinCommandTemplate      string = `# Run this on the hub cluster context
 kubectl get secret %s -n %s -o=jsonpath="{.data.caBundle}" > caBundle
 kubectl get secret %s -n %s -o=jsonpath="{.data.token}" > token
 #Run this in the spoke cluster context, the spoke context is set by a path in SPOKE_KUBECONFIG env. var
 export KUBECONFIG=${SPOKE_KUBECONFIG}
-kubectl create secret hub-cluster -n onprem-system --from-file=caBundle --from-file=token
+kubectl create namespace onprem-system
+kubectl create secret generic hub-cluster -n onprem-system --from-file=caBundle --from-file=token
 kubectl create configmap hub-cluster -n onprem-system --from-literal=joinClusterName=%s --from-literal=joinClusterNamespace=%s --from-literal=server=%s
 cat << EOF | kubectl apply -f - 
 %s
@@ -72,6 +73,10 @@ func ignoreNotFound(err error) error {
 
 // +kubebuilder:rbac:groups=clustermanager.onprem.openshift.io,resources=joinedclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=clustermanager.onprem.openshift.io,resources=joinedclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create;update;delete;watch
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;create;delete;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;watch
+// +kubebuilder:rbac:groups="config.openshift.io",resources=infrastructures,verbs=get;list;watch
 
 func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -124,13 +129,15 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//continue with the controller logic
 	condition := joinedCluster.IsCondition(clustermanagerv1alpha1.ConditionTypeReadyToJoin)
 	if condition != nil {
-		//ready to join, check for staleness, disconnects
-		sinceLastUpdate := time.Since(joinedCluster.Status.ClusterAgentInfo.LastUpdateTime.Time)
-		if sinceLastUpdate >= joinedCluster.Spec.StaleDuration.Duration &&
-			sinceLastUpdate < joinedCluster.Spec.DisconnectDuration.Duration {
-			joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentStale)
-		} else if sinceLastUpdate > joinedCluster.Spec.DisconnectDuration.Duration {
-			joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentDisconnected)
+		if joinedCluster.Status.ClusterAgentInfo != nil {
+			//ready to join, check for staleness, disconnects
+			sinceLastUpdate := time.Since(joinedCluster.Status.ClusterAgentInfo.LastUpdateTime.Time)
+			if sinceLastUpdate >= joinedCluster.Spec.StaleDuration.Duration &&
+				sinceLastUpdate < joinedCluster.Spec.DisconnectDuration.Duration {
+				joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentStale)
+			} else if sinceLastUpdate > joinedCluster.Spec.DisconnectDuration.Duration {
+				joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentDisconnected)
+			}
 		}
 	} else {
 		// not ready to join, create SA, rolebinding KubeConfig
@@ -141,6 +148,10 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 
 		saSecret, err := getSecret(r, serviceAccount, log)
+		if err != nil {
+			log.Error(err, "Error getting the sa secret")
+			return ctrl.Result{}, err
+		}
 
 		_, err = createRoleBinding(r, &req, &joinedCluster, log)
 		if err != nil {
@@ -148,9 +159,9 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 
 		serverUrl, err := getServerUrl(r, log)
-		if _, exists := saSecret.Data["ca.crt"]; exists {
+		if _, exists := saSecret.Data["service-ca.crt"]; exists {
 			if _, exists := saSecret.Data["token"]; exists {
-				joinSecret, err := createJoinSecret(r, saSecret.Data["ca.crt"], saSecret.Data["token"], joinedCluster.Name)
+				joinSecret, err := createJoinSecret(r, saSecret.Data["service-ca.crt"], saSecret.Data["token"], joinedCluster.Name)
 				if err != nil {
 					return ctrl.Result{}, err
 				}
@@ -169,8 +180,8 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 				return ctrl.Result{}, errors.New("Token key not found for the sa secret")
 			}
 		} else {
-			log.Info("Couldn't find the ca.crt key in the secret")
-			return ctrl.Result{}, errors.New("ca.crt not found in the secret")
+			log.Info("Couldn't find the service-ca.crt key in the secret")
+			return ctrl.Result{}, errors.New("service-ca.crt not found in the secret")
 		}
 		// at this point we have a role binding created, now get the sa token and create
 		// kubeconfig file.
@@ -198,9 +209,15 @@ func (r *JoinedClusterReconciler) deleteExternalResources(req *ctrl.Request, j *
 	// TODO: add finalizer code here
 	err := deleteRoleBinding(r, req, j)
 	if err != nil {
-		return err
+		return ignoreNotFound(err)
 	}
-	return deleteServiceAccount(r, req, j)
+
+	err = deleteJoinSecret(r, req, j)
+	if err != nil {
+		return ignoreNotFound(err)
+	}
+
+	return ignoreNotFound(deleteServiceAccount(r, req, j))
 }
 
 // Helper functions to check and remove string from a slice of strings.
@@ -223,7 +240,6 @@ func removeString(slice []string, s string) (result []string) {
 	return
 }
 
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;create;update;delete
 func createServiceAccount(r *JoinedClusterReconciler, req *ctrl.Request,
 	joinedCluster *clustermanagerv1alpha1.JoinedCluster, log logr.Logger) (*v1.ServiceAccount, error) {
 
@@ -231,7 +247,7 @@ func createServiceAccount(r *JoinedClusterReconciler, req *ctrl.Request,
 	if joinedCluster.Spec.ServiceAccount != nil {
 		saName = *joinedCluster.Spec.ServiceAccount
 	} else {
-		saName = fmt.Sprintf("%s-%s", req.NamespacedName, "serviceaccount")
+		saName = fmt.Sprintf("%s-%s", joinedCluster.Name, "serviceaccount")
 	}
 
 	serviceAccount := &v1.ServiceAccount{
@@ -267,10 +283,10 @@ func createServiceAccount(r *JoinedClusterReconciler, req *ctrl.Request,
 	case err != nil && !apierrs.IsNotFound(err):
 		return nil, err
 	}
+	log.Info("Created service account")
 	return serviceAccount, nil
 }
 
-// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;create;delete
 func createRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request,
 	joinedCluster *clustermanagerv1alpha1.JoinedCluster, log logr.Logger) (*rbacv1.RoleBinding, error) {
 	var saName string
@@ -279,7 +295,7 @@ func createRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request,
 		saName = *joinedCluster.Spec.ServiceAccount
 		roleBindingName = fmt.Sprintf("%s-%s", *joinedCluster.Spec.ServiceAccount, "rolebinding")
 	} else {
-		saName = fmt.Sprintf("%s-%s", req.NamespacedName, "serviceaccount")
+		saName = fmt.Sprintf("%s-%s", joinedCluster.Name, "serviceaccount")
 		roleBindingName = fmt.Sprintf("%s-%s", saName, "rolebinding")
 	}
 	roleBinding := &rbacv1.RoleBinding{
@@ -318,6 +334,7 @@ func createRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request,
 	case err != nil && !apierrs.IsNotFound(err):
 		return nil, err
 	}
+	log.Info("Created role binding")
 	return roleBinding, nil
 }
 
@@ -326,7 +343,7 @@ func deleteServiceAccount(r *JoinedClusterReconciler, req *ctrl.Request, j *clus
 	if j.Spec.ServiceAccount != nil {
 		saName = *j.Spec.ServiceAccount
 	} else {
-		saName = fmt.Sprintf("%s-%s", req.NamespacedName, "serviceaccount")
+		saName = fmt.Sprintf("%s-%s", j.Name, "serviceaccount")
 	}
 
 	serviceAccount := &v1.ServiceAccount{
@@ -343,7 +360,7 @@ func deleteRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request, j *cluster
 	if j.Spec.ServiceAccount != nil {
 		roleBindingName = fmt.Sprintf("%s-%s", *j.Spec.ServiceAccount, "rolebinding")
 	} else {
-		roleBindingName = fmt.Sprintf("%s-%s-%s", req.NamespacedName, "serviceaccount", "rolebinding")
+		roleBindingName = fmt.Sprintf("%s-%s-%s", j.Name, "serviceaccount", "rolebinding")
 	}
 
 	roleBinding := &rbacv1.RoleBinding{
@@ -355,15 +372,27 @@ func deleteRoleBinding(r *JoinedClusterReconciler, req *ctrl.Request, j *cluster
 	return r.Delete(context.Background(), roleBinding)
 }
 
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete
 func getSecret(r *JoinedClusterReconciler, serviceAccount *v1.ServiceAccount, log logr.Logger) (*v1.Secret, error) {
+	var secretName string = ""
 	if len(serviceAccount.Secrets) <= 0 {
+		log.Info("No secrets are created yet for this service account")
 		return nil, errors.New("Service account doesn't have any secrets")
 	}
-
+	for _, sec := range serviceAccount.Secrets {
+		if strings.Contains(sec.Name, "-token-") {
+			secretName = sec.Name
+			log.Info("Found matching secret with name", "name", secretName)
+			break
+		}
+	}
+	if secretName == "" {
+		log.Info("No matching secret found that can be used to get a token")
+		return nil, errors.New("No secret found that has token in it")
+	}
+	log.Info("Now looking for a secret for this account with name", "name", secretName)
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceAccount.Secrets[0].Name,
+			Name:      secretName,
 			Namespace: serviceAccount.Namespace,
 		},
 	}
@@ -372,11 +401,18 @@ func getSecret(r *JoinedClusterReconciler, serviceAccount *v1.ServiceAccount, lo
 		log.Error(err, "Error getting object key for service account", "name", serviceAccount.Name)
 		return nil, err
 	}
+	log.Info("Now getting the secret itself from the api server")
 	err = r.Get(context.Background(), secretObjectKey, secret)
 	if err != nil {
 		log.Error(err, "Error getting secret from API server", "name", secret.Name)
 		return nil, err
 	}
+	log.Info("Got secret with the desired secretobjectkey")
+	if secret.Data == nil {
+		log.Info("Secret is not ready yet")
+		return nil, errors.New("Secret isn't populated yet with service-ca.crt and token")
+	}
+	log.Info("Returning created secret")
 	return secret, nil
 
 }
@@ -394,7 +430,19 @@ func createJoinSecret(r *JoinedClusterReconciler, caCert []byte, token []byte, j
 			"token":    token,
 		},
 	}
-	err := r.Create(context.Background(), secret)
+	secretObjectKey, err := client.ObjectKeyFromObject(secret)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.Get(context.Background(), secretObjectKey, secret)
+	if err == nil {
+		return secret, err
+	}
+	if ignoreNotFound(err) != nil {
+		return nil, err
+	}
+	err = r.Create(context.Background(), secret)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +450,19 @@ func createJoinSecret(r *JoinedClusterReconciler, caCert []byte, token []byte, j
 	return secret, nil
 }
 
-// +kubebuilder:rbac:groups="config.openshift.io",resources=infrastructures,verbs=get;list
+func deleteJoinSecret(r *JoinedClusterReconciler, req *ctrl.Request, j *clustermanagerv1alpha1.JoinedCluster) error {
+	var secretName string = fmt.Sprintf("%s-%s", j.Name, "join-secret")
+
+	joinSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: OnPremCanonicalNamespace,
+		},
+	}
+
+	return r.Delete(context.Background(), joinSecret)
+}
+
 func getServerUrl(r *JoinedClusterReconciler, log logr.Logger) (string, error) {
 	infrastructure := &configv1.Infrastructure{
 		ObjectMeta: metav1.ObjectMeta{
