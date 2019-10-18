@@ -25,6 +25,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -51,11 +52,32 @@ func main() {
 
 	ctrl.SetLogger(zap.Logger(true))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	spokeConfig := ctrl.GetConfigOrDie()
+	spokeClient, err := client.New(spokeConfig, client.Options{})
+	if err != nil {
+		setupLog.Error(err, "Unable to create spoke client")
+		os.Exit(1)
+	}
+
+	joinedClusterCoordinates, err := agent.GetJoinedClusterCoordinates(spokeClient)
+	if err != nil {
+		setupLog.Error(err, "Unable to get join cluster coordinates")
+		os.Exit(1)
+	}
+
+	hubClusterConfig, err := agent.BuildHubClusterConfig(spokeClient)
+	if err != nil {
+		setupLog.Error(err, "Unable to build hub cluster config")
+		os.Exit(1)
+	}
+
+	mgr, err := ctrl.NewManager(hubClusterConfig, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		LeaderElection:     enableLeaderElection,
 		Port:               9443,
+		SyncPeriod:         &agent.HeartBeatDelay,
+		Namespace:          joinedClusterCoordinates.Namespace,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -63,8 +85,9 @@ func main() {
 	}
 
 	if err = (&agent.JoinedClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("agent").WithName("JoinedCluster"),
+		HubClient:   mgr.GetClient(),
+		SpokeClient: spokeClient,
+		Log:         ctrl.Log.WithName("agent").WithName("JoinedCluster"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "JoinedCluster")
 		os.Exit(1)
