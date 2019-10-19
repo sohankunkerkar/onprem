@@ -67,7 +67,7 @@ docker-build: test
 
 # Build the agent docker image
 docker-build-agent: test
-	docker build -f config/agent/docker/Dockerfile . -t ${IMG}
+	docker build -f config/agent/Dockerfile . -t ${IMG}
 
 # Push the docker image
 docker-push:
