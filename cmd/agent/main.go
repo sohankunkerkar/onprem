@@ -44,10 +44,7 @@ func init() {
 
 func main() {
 	var metricsAddr string
-	var enableLeaderElection bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -74,7 +71,6 @@ func main() {
 	mgr, err := ctrl.NewManager(hubClusterConfig, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
-		LeaderElection:     enableLeaderElection,
 		Port:               9443,
 		SyncPeriod:         &agent.HeartBeatDelay,
 		Namespace:          joinedClusterCoordinates.Namespace,

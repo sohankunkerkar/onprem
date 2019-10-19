@@ -25,8 +25,6 @@ spec:
       containers:
       - command:
         - /agent
-        args:
-        - --enable-leader-election
         image: 172.17.0.1:5000/onprem-agent:latest
         name: agent
         resources:
