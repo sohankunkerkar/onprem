@@ -25,7 +25,7 @@ spec:
       containers:
       - command:
         - /agent
-        image: 172.17.0.1:5000/onprem-agent:latest
+        image: quay.io/ifont/onprem-agent:latest
         name: agent
         resources:
           limits:

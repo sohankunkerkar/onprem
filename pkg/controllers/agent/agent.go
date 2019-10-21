@@ -179,7 +179,7 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	joinedCluster.Status.Conditions = []v1alpha1.JoinedClusterConditions{agentConnected}
 	agentInfo := &v1alpha1.ClusterAgentInfo{
 		Version:        "v0.0.1",
-		Image:          "172.17.0.1:5000/onprem-agent:latest",
+		Image:          "quay.io/ifont/onprem-agent:latest",
 		LastUpdateTime: currentTime,
 	}
 	joinedCluster.Status.ClusterAgentInfo = agentInfo
