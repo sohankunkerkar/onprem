@@ -42,7 +42,7 @@ var (
 	apiEndpointKey            = "server"
 	joinedClusterNameKey      = "joinClusterName"
 	joinedClusterNamespaceKey = "joinClusterNamespace"
-	caBundleKey               = "cabundle"
+	caBundleKey               = "caBundle"
 	tokenKey                  = "token"
 )
 
