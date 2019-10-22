@@ -1,7 +1,9 @@
 apiVersion: clustermanager.onprem.openshift.io/v1alpha1
 kind: JoinedCluster
 metadata:
-  name: joinedcluster-sample
+  name: joinedcluster-baz
+  namespace: test
 spec:
   # Add fields here
-  foo: bar
+  disconnectDuration: "600s"
+  staleDuration: "300s"
