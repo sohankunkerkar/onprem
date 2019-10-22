@@ -39,8 +39,8 @@ const (
 	yamlFilePath                    = "agent.yaml"
 	OnPremCanonicalNamespace string = "onprem-hub-system"
 	joinCommandTemplate      string = `# Run this on the hub cluster context
-kubectl get secret %s -n %s -o=jsonpath="{.data.caBundle}" > caBundle
-kubectl get secret %s -n %s -o=jsonpath="{.data.token}" > token
+kubectl get secret %s -n %s -o=jsonpath="{.data.caBundle}" | base64 --decode > caBundle
+kubectl get secret %s -n %s -o=jsonpath="{.data.token}" | base64 --decode > token
 #Run this in the spoke cluster context, the spoke context is set by a path in SPOKE_KUBECONFIG env. var
 export KUBECONFIG=${SPOKE_KUBECONFIG}
 kubectl create namespace onprem-system
@@ -128,18 +128,17 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	//continue with the controller logic
 	condition := joinedCluster.IsCondition(clustermanagerv1alpha1.ConditionTypeReadyToJoin)
-	if condition != nil {
-		if joinedCluster.Status.ClusterAgentInfo != nil {
-			//ready to join, check for staleness, disconnects
-			sinceLastUpdate := time.Since(joinedCluster.Status.ClusterAgentInfo.LastUpdateTime.Time)
-			if sinceLastUpdate >= joinedCluster.Spec.StaleDuration.Duration &&
-				sinceLastUpdate < joinedCluster.Spec.DisconnectDuration.Duration {
-				joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentStale)
-			} else if sinceLastUpdate > joinedCluster.Spec.DisconnectDuration.Duration {
-				joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentDisconnected)
-			}
+	if joinedCluster.Status.ClusterAgentInfo != nil {
+		//ready to join, check for staleness, disconnects
+		sinceLastUpdate := time.Since(joinedCluster.Status.ClusterAgentInfo.LastUpdateTime.Time)
+		if sinceLastUpdate >= joinedCluster.Spec.StaleDuration.Duration &&
+			sinceLastUpdate < joinedCluster.Spec.DisconnectDuration.Duration {
+			joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentStale)
+		} else if sinceLastUpdate > joinedCluster.Spec.DisconnectDuration.Duration {
+			joinedCluster.SetCondition(clustermanagerv1alpha1.ConditionTypeAgentDisconnected)
 		}
-	} else {
+
+	} else if condition == nil {
 		// not ready to join, create SA, rolebinding KubeConfig
 		// set ServiceAccount and JoinCommand status subresource fields.
 		serviceAccount, err := createServiceAccount(r, &req, &joinedCluster, log)
