@@ -99,7 +99,7 @@ type ClusterAgentInfo struct {
 	// Image of the cluster agent running int he spoke cluster.
 	Image string `json:"image"`
 	// Last update time written by cluster agent.
-	LastUpdateTime metav1.Time `json:"time"`
+	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
 }
 
 // JoinedClusterStatus defines the observed state of JoinedCluster

@@ -63,7 +63,7 @@ spec:
                 image:
                   description: Image of the cluster agent running int he spoke cluster.
                   type: string
-                time:
+                lastUpdateTime:
                   description: Last update time written by cluster agent.
                   format: date-time
                   type: string
@@ -72,7 +72,7 @@ spec:
                   type: string
               required:
               - image
-              - time
+              - lastUpdateTime
               - version
               type: object
             conditions:
