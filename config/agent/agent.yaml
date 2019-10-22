@@ -30,10 +30,10 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 128Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 64Mi
         volumeMounts:
         - name: hub-cluster-secret
           mountPath: /etc/hub-cluster-secret
