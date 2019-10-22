@@ -25,17 +25,15 @@ spec:
       containers:
       - command:
         - /agent
-        args:
-        - --enable-leader-election
-        image: 172.17.0.1:5000/onprem-agent:latest
+        image: quay.io/ifont/onprem-agent:latest
         name: agent
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 128Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 64Mi
         volumeMounts:
         - name: hub-cluster-secret
           mountPath: /etc/hub-cluster-secret
@@ -51,3 +49,16 @@ spec:
       - name: hub-cluster-configmap
         configMap:
           name: hub-cluster
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-admin
+  namespace: onprem-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- kind: ServiceAccount
+  name: default

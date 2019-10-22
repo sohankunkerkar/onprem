@@ -10,6 +10,7 @@ require (
 	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v0.0.0-20190927022300-d4a64ec2cbd8 //manual
+	github.com/pkg/errors v0.8.1
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
 	k8s.io/api v0.0.0-20191016225839-816a9b7df678
 	k8s.io/apimachinery v0.0.0-20191016225534-b1267f8c42b4
