@@ -111,12 +111,7 @@ func GetJoinedClusterCoordinates(spokeClient client.Client) (*JoinedClusterCoord
 	}, nil
 }
 
-func BuildHubClusterConfig(spokeClient client.Client) (*rest.Config, error) {
-	jcc, err := GetJoinedClusterCoordinates(spokeClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to get joined cluster coordinates")
-	}
-
+func BuildHubClusterConfig(spokeClient client.Client, jcc *JoinedClusterCoordinates) (*rest.Config, error) {
 	// Build config using contents extracted from ConfigMap and Secret.
 	clusterConfig, err := clientcmd.BuildConfigFromFlags(jcc.APIEndpoint, "")
 	if err != nil {

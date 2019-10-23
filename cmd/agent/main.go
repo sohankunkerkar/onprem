@@ -62,7 +62,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hubClusterConfig, err := agent.BuildHubClusterConfig(spokeClient)
+	hubClusterConfig, err := agent.BuildHubClusterConfig(spokeClient, joinedClusterCoordinates)
 	if err != nil {
 		setupLog.Error(err, "Unable to build hub cluster config")
 		os.Exit(1)
