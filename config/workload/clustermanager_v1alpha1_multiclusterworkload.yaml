@@ -1,0 +1,7 @@
+apiVersion: clustermanager.onprem.openshift.io/v1alpha1
+kind: MultiClusterWorkload
+metadata:
+  name: multiclusterworkload-sample
+spec:
+  # Add fields here
+  foo: bar

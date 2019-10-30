@@ -1,0 +1,7 @@
+apiVersion: clustermanager.onprem.openshift.io/v1alpha1
+kind: SingleClusterWorkload
+metadata:
+  name: singleclusterworkload-sample
+spec:
+  # Add fields here
+  foo: bar

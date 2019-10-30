@@ -5,3 +5,9 @@ resources:
 - group: clustermanager
   version: v1alpha1
   kind: JoinedCluster
+- group: clustermanager
+  version: v1alpha1
+  kind: MultiClusterWorkload
+- group: clustermanager
+  version: v1alpha1
+  kind: SingleClusterWorkload
