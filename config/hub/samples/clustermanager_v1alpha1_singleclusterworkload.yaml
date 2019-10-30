@@ -1,0 +1,40 @@
+apiVersion: clustermanager.onprem.openshift.io/v1alpha1
+kind: SingleClusterWorkload
+metadata:
+  name: singleclusterworkload-sample
+spec:
+  template: |-
+   --- 
+   kind: Deployment
+   apiVersion: extensions/v1beta1
+   metadata:
+     name: nginx-deployment
+   spec:
+     replicas: 3
+     strategy: Recreate
+     selector:
+       matchLabels:
+         deploy: example
+     template:
+       metadata:
+         labels:
+           deploy: example
+       spec:
+         containers:
+           - name: nginx
+             image: nginx:1.7.9
+    ---
+  serviceaccount: gcp-spoke-serviceaccount
+  clusterID: gcp-cluster1
+status:
+  conditions:
+  - lastTransitionTime: "2019-10-30T19:13:28Z"
+    message: Resources created in the spoke cluster successfully.
+    reason: WorkloadDeploymentSuccessful
+    status: "True"
+    type: WorkloadDeploymentSuccessful
+  - lastTransitionTime: "2019-10-30T19:13:26Z"
+    message: RBAC permissions have been created successfully. 
+    reason: WorkloadRBACPolicy
+    status: "True"
+    type: WorkloadRBACPolicy
