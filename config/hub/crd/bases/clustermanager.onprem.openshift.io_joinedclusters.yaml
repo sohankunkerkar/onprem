@@ -61,7 +61,7 @@ spec:
                 it will report metadata information in this field.
               properties:
                 image:
-                  description: Image of the cluster agent running int he spoke cluster.
+                  description: Image of the cluster agent running in the spoke cluster.
                   type: string
                 lastUpdateTime:
                   description: Last update time written by cluster agent.

@@ -96,10 +96,16 @@ type JoinedClusterConditions struct {
 type ClusterAgentInfo struct {
 	// Version of the cluster agent running in the spoke cluster.
 	Version string `json:"version"`
-	// Image of the cluster agent running int he spoke cluster.
+	// Image of the cluster agent running in the spoke cluster.
 	Image string `json:"image"`
 	// Last update time written by cluster agent.
 	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+	// ClusterName provides the cluster name of the spoke cluster
+	ClusterName string `json:"clusterName"`
+	// ClusterVersion provides the version of openshift distribution running in the spoke cluster.
+	ClusterVersion string `json:"clusterVersion"`
+	// NodeCount provides the number of nodes present in the spoke cluster.
+	NodeCount int `json:"nodeCount"`
 }
 
 // JoinedClusterStatus defines the observed state of JoinedCluster

@@ -20,16 +20,17 @@ import (
 	"io/ioutil"
 	"time"
 
+	v1alpha1 "github.com/font/onprem/api/v1alpha1"
 	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	v1alpha1 "github.com/font/onprem/api/v1alpha1"
 )
 
 var (
@@ -128,9 +129,10 @@ func BuildHubClusterConfig(spokeClient client.Client, jcc *JoinedClusterCoordina
 
 // JoinedClusterReconciler reconciles a JoinedCluster object
 type JoinedClusterReconciler struct {
-	HubClient   client.Client
-	SpokeClient client.Client
-	Log         logr.Logger
+	HubClient       client.Client
+	SpokeClient     client.Client
+	DiscoveryClient *discovery.DiscoveryClient
+	Log             logr.Logger
 }
 
 func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -172,10 +174,29 @@ func (r *JoinedClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		agentConnected.LastTransitionTime = &currentTime
 	}
 	joinedCluster.Status.Conditions = []v1alpha1.JoinedClusterConditions{agentConnected}
+
+	clusterName, err := getClusterName(r, log)
+	if err != nil {
+		log.Error(err, "unable to get the infrastructure for the spoke cluster")
+		return ctrl.Result{}, err
+	}
+	clusterVersion, err := r.DiscoveryClient.ServerVersion()
+	if err != nil {
+		log.Error(err, "unable to get clusterVerison object for getting the version of openshift distribution running in the spoke cluster")
+		return ctrl.Result{}, err
+	}
+	nodeList := &corev1.NodeList{}
+	if err = r.SpokeClient.List(context.TODO(), nodeList, &client.ListOptions{}); err != nil {
+		log.Error(err, "unable to get the nodelist from the spoke cluster")
+		return ctrl.Result{}, err
+	}
 	agentInfo := &v1alpha1.ClusterAgentInfo{
 		Version:        "v0.0.1",
 		Image:          "quay.io/ifont/onprem-agent:latest",
 		LastUpdateTime: currentTime,
+		ClusterName:    clusterName,
+		ClusterVersion: clusterVersion.GitVersion,
+		NodeCount:      len(nodeList.Items),
 	}
 	joinedCluster.Status.ClusterAgentInfo = agentInfo
 
@@ -192,4 +213,24 @@ func (r *JoinedClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.JoinedCluster{}).
 		Complete(r)
+}
+
+func getClusterName(r *JoinedClusterReconciler, log logr.Logger) (string, error) {
+	infrastructure := &configv1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster",
+			Namespace: "",
+		},
+	}
+	infraObjectKey, err := client.ObjectKeyFromObject(infrastructure)
+	if err != nil {
+		log.Error(err, "Error getting the object key for infrastructure object", "name", infrastructure.Name)
+		return "", err
+	}
+	err = r.SpokeClient.Get(context.Background(), infraObjectKey, infrastructure)
+	if err != nil {
+		log.Error(err, "Error getting infrastructure from API server", "name", infrastructure.Name)
+		return "", err
+	}
+	return infrastructure.Status.InfrastructureName, nil
 }

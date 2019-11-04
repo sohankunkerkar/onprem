@@ -22,6 +22,7 @@ import (
 	clustermanagerv1alpha1 "github.com/font/onprem/api/v1alpha1"
 	"github.com/font/onprem/pkg/controllers/agent"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,7 +56,11 @@ func main() {
 		setupLog.Error(err, "Unable to create spoke client")
 		os.Exit(1)
 	}
-
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(spokeConfig)
+	if err != nil {
+		setupLog.Error(err, "Unable to get discoveryClient for the spoke cluster")
+		os.Exit(1)
+	}
 	joinedClusterCoordinates, err := agent.GetJoinedClusterCoordinates(spokeClient)
 	if err != nil {
 		setupLog.Error(err, "Unable to get join cluster coordinates")
@@ -81,9 +86,10 @@ func main() {
 	}
 
 	if err = (&agent.JoinedClusterReconciler{
-		HubClient:   mgr.GetClient(),
-		SpokeClient: spokeClient,
-		Log:         ctrl.Log.WithName("agent").WithName("JoinedCluster"),
+		HubClient:       mgr.GetClient(),
+		SpokeClient:     spokeClient,
+		DiscoveryClient: discoveryClient,
+		Log:             ctrl.Log.WithName("agent").WithName("JoinedCluster"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "JoinedCluster")
 		os.Exit(1)
