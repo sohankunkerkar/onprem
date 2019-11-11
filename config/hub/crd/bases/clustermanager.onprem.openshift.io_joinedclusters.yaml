@@ -3,6 +3,8 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
   name: joinedclusters.clustermanager.onprem.openshift.io
 spec:
@@ -60,6 +62,14 @@ spec:
               description: When the cluster agent starts running and heartbeating,
                 it will report metadata information in this field.
               properties:
+                clusterName:
+                  description: ClusterName provides the cluster name of the spoke
+                    cluster
+                  type: string
+                clusterVersion:
+                  description: ClusterVersion provides the version of openshift distribution
+                    running in the spoke cluster.
+                  type: string
                 image:
                   description: Image of the cluster agent running in the spoke cluster.
                   type: string
@@ -67,12 +77,19 @@ spec:
                   description: Last update time written by cluster agent.
                   format: date-time
                   type: string
+                nodeCount:
+                  description: NodeCount provides the number of nodes present in the
+                    spoke cluster.
+                  type: integer
                 version:
                   description: Version of the cluster agent running in the spoke cluster.
                   type: string
               required:
+              - clusterName
+              - clusterVersion
               - image
               - lastUpdateTime
+              - nodeCount
               - version
               type: object
             conditions:
